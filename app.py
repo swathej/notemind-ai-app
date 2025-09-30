@@ -7,21 +7,17 @@ import sys
 import whisper
 from yt_dlp import YoutubeDL
 from langchain.docstore.document import Document
-# Corrected Imports
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader, UnstructuredMarkdownLoader, WebBaseLoader
-from langchain_community.llms import HuggingFaceHub # MOVED BACK TO COMMUNITY
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaLLM
 from langchain.chains import RetrievalQA
+from langchain_community.llms import HuggingFaceHub
 
 # --- UI Configuration ---
 st.set_page_config(page_title="NoteMind AI", page_icon="🧠", layout="wide")
 st.title("🧠 NoteMind AI: Your Personal Knowledge Base")
-
-# --- Application Setup ---
-CHROMA_DB_DIRECTORY = "chroma_db"
 
 # --- Conditional LLM Initialization ---
 if 'HUGGINGFACEHUB_API_TOKEN' in st.secrets:
@@ -56,13 +52,13 @@ def process_documents(documents):
     chunks = text_splitter.split_documents(documents)
     
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    
+    # --- MODIFIED: Create/add to in-memory database ---
     if st.session_state.vector_db is not None:
         st.session_state.vector_db.add_documents(chunks)
         st.info("New documents added.")
     else:
-        st.session_state.vector_db = Chroma.from_documents(
-            documents=chunks, embedding=embeddings, persist_directory=CHROMA_DB_DIRECTORY
-        )
+        st.session_state.vector_db = Chroma.from_documents(documents=chunks, embedding=embeddings)
         st.info("New knowledge base created.")
     
     st.session_state.qa_chain = initialize_qa_chain(st.session_state.vector_db)
@@ -104,7 +100,7 @@ def transcribe_youtube_audio(url):
 # --- Sidebar ---
 with st.sidebar:
     st.header("Manage Knowledge Base")
-    uploaded_files = st.file_uploader("Upload your documents", type=["pdf", "txt", "docx", "md"], accept_multiple_files=True, key="file_uploader")
+    uploaded_files = st.file_uploader("Upload documents for this session", type=["pdf", "txt", "docx", "md"], accept_multiple_files=True, key="file_uploader")
 
     st.header("Add from URL")
     url_input = st.text_input("Enter a web page URL:", key="url_input_widget")
@@ -117,16 +113,10 @@ with st.sidebar:
         if youtube_url_input: st.session_state.youtube_url_to_process = youtube_url_input
         else: st.warning("Please enter a YouTube URL.")
             
-    if st.button("Clear Knowledge Base"):
-        if os.path.exists(CHROMA_DB_DIRECTORY):
-            command = [sys.executable, "-c", f"import time; import shutil; time.sleep(2); shutil.rmtree('{CHROMA_DB_DIRECTORY}', ignore_errors=True)"]
-            subprocess.Popen(command)
-            for key in ['vector_db', 'qa_chain', 'file_uploader']:
-                if key in st.session_state: del st.session_state[key]
-            st.success("Clear command issued!")
-            time.sleep(3); st.rerun()
-        else:
-            st.info("No knowledge base to clear.")
+    if st.button("Clear Session"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
 
 # --- Processing Logic ---
 if uploaded_files:
@@ -138,13 +128,14 @@ if uploaded_files:
             with open(temp_file_path, "wb") as f: f.write(uploaded_file.getbuffer())
             
             file_extension = os.path.splitext(uploaded_file.name)[1]
+            loader = None
             if file_extension == ".pdf": loader = PyPDFLoader(temp_file_path)
             elif file_extension == ".txt": loader = TextLoader(temp_file_path)
             elif file_extension == ".docx": loader = Docx2txtLoader(temp_file_path)
             elif file_extension == ".md": loader = UnstructuredMarkdownLoader(temp_file_path)
-            else: continue
             
-            all_docs.extend(loader.load())
+            if loader:
+                all_docs.extend(loader.load())
             os.remove(temp_file_path)
         
         process_documents(all_docs)
@@ -167,13 +158,7 @@ if st.session_state.get("youtube_url_to_process"):
         if documents:
             process_documents(documents)
 
-# --- Load Existing DB on Startup ---
-if st.session_state.qa_chain is None and os.path.exists(CHROMA_DB_DIRECTORY):
-    with st.spinner("Loading existing knowledge base..."):
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        st.session_state.vector_db = Chroma(persist_directory=CHROMA_DB_DIRECTORY, embedding_function=embeddings)
-        st.session_state.qa_chain = initialize_qa_chain(st.session_state.vector_db)
-        st.info("Existing knowledge base loaded.")
+# --- REMOVED: Load Existing DB on Startup logic ---
 
 st.write("---")
 st.header("Ask Questions About Your Knowledge Base")
@@ -186,7 +171,7 @@ if st.session_state.qa_chain:
             st.write("### Answer")
             st.write(response["result"])
             st.write("### Sources")
-            for source in response["source_documents"]:
+            for source in response["source_documents']:
                 st.info(f"Source: {source.metadata.get('source', 'N/A')}")
 else:
-    st.warning("Please upload documents or add a URL to begin.")
+    st.warning("Please upload documents or add a URL to begin a session.")
