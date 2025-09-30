@@ -22,7 +22,11 @@ st.title("🧠 NoteMind AI: Your Personal Knowledge Base")
 # --- Conditional LLM Initialization ---
 # Use Groq if an API key is available in secrets, otherwise use local Ollama
 if 'GROQ_API_KEY' in st.secrets:
-    llm = ChatGroq(model_name="llama3-8b-8192", temperature=0.2)
+    llm = ChatGroq(
+    temperature=0, 
+    model_name="llama3-8b-8192",
+    groq_api_key=st.secrets["GROQ_API_KEY"]
+)
     st.sidebar.success("✅ Using Groq API")
 else:
     llm = OllamaLLM(model="llama3:8b")
