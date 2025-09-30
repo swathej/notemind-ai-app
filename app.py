@@ -6,9 +6,10 @@ import subprocess
 import sys
 import whisper
 from yt_dlp import YoutubeDL
-from langchain_huggingface import HuggingFaceHub
 from langchain.docstore.document import Document
+# Corrected Imports
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader, UnstructuredMarkdownLoader, WebBaseLoader
+from langchain_community.llms import HuggingFaceHub # MOVED BACK TO COMMUNITY
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
@@ -21,6 +22,8 @@ st.title("🧠 NoteMind AI: Your Personal Knowledge Base")
 
 # --- Application Setup ---
 CHROMA_DB_DIRECTORY = "chroma_db"
+
+# --- Conditional LLM Initialization ---
 if 'HUGGINGFACEHUB_API_TOKEN' in st.secrets:
     repo_id = "mistralai/Mistral-7B-Instruct-v0.1"
     llm = HuggingFaceHub(repo_id=repo_id, model_kwargs={"temperature": 0.2, "max_length": 1024})
@@ -145,7 +148,6 @@ if uploaded_files:
             os.remove(temp_file_path)
         
         process_documents(all_docs)
-        # st.session_state.file_uploader = [] # <-- THIS LINE IS NOW REMOVED
 
 if st.session_state.get("url_to_process"):
     with st.spinner("Fetching and processing URL..."):
@@ -154,7 +156,6 @@ if st.session_state.get("url_to_process"):
         loader = WebBaseLoader(url_to_process)
         documents = loader.load()
         process_documents(documents)
-        st.rerun()
         
 if st.session_state.get("youtube_url_to_process"):
     with st.spinner("Downloading audio from YouTube..."):
@@ -165,7 +166,6 @@ if st.session_state.get("youtube_url_to_process"):
         
         if documents:
             process_documents(documents)
-        st.rerun()
 
 # --- Load Existing DB on Startup ---
 if st.session_state.qa_chain is None and os.path.exists(CHROMA_DB_DIRECTORY):
