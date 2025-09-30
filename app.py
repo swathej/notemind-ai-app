@@ -6,6 +6,7 @@ import subprocess
 import sys
 import whisper
 from yt_dlp import YoutubeDL
+from langchain_huggingface import HuggingFaceHub
 from langchain.docstore.document import Document
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader, UnstructuredMarkdownLoader, WebBaseLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
