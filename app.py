@@ -171,7 +171,8 @@ if st.session_state.qa_chain:
             st.write("### Answer")
             st.write(response["result"])
             st.write("### Sources")
-            for source in response["source_documents']:
+            # The typo was a stray quote at the end of the next line
+            for source in response["source_documents"]:
                 st.info(f"Source: {source.metadata.get('source', 'N/A')}")
 else:
     st.warning("Please upload documents or add a URL to begin a session.")
