@@ -13,17 +13,17 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaLLM
 from langchain.chains import RetrievalQA
-from langchain_community.llms import HuggingFaceHub
+from langchain_groq import ChatGroq # New Import
 
 # --- UI Configuration ---
 st.set_page_config(page_title="NoteMind AI", page_icon="🧠", layout="wide")
 st.title("🧠 NoteMind AI: Your Personal Knowledge Base")
 
 # --- Conditional LLM Initialization ---
-if 'HUGGINGFACEHUB_API_TOKEN' in st.secrets:
-    repo_id = "mistralai/Mistral-7B-Instruct-v0.1"
-    llm = HuggingFaceHub(repo_id=repo_id, model_kwargs={"temperature": 0.2, "max_length": 1024})
-    st.sidebar.success("✅ Using Hugging Face API")
+# Use Groq if an API key is available in secrets, otherwise use local Ollama
+if 'GROQ_API_KEY' in st.secrets:
+    llm = ChatGroq(model_name="llama3-8b-8192", temperature=0.2)
+    st.sidebar.success("✅ Using Groq API")
 else:
     llm = OllamaLLM(model="llama3:8b")
     st.sidebar.info("💡 Using local Ollama model")
@@ -52,13 +52,13 @@ def process_documents(documents):
     chunks = text_splitter.split_documents(documents)
     
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    
-    # --- MODIFIED: Create/add to in-memory database ---
     if st.session_state.vector_db is not None:
         st.session_state.vector_db.add_documents(chunks)
         st.info("New documents added.")
     else:
-        st.session_state.vector_db = Chroma.from_documents(documents=chunks, embedding=embeddings)
+        st.session_state.vector_db = Chroma.from_documents(
+            documents=chunks, embedding=embeddings
+        )
         st.info("New knowledge base created.")
     
     st.session_state.qa_chain = initialize_qa_chain(st.session_state.vector_db)
@@ -134,8 +134,7 @@ if uploaded_files:
             elif file_extension == ".docx": loader = Docx2txtLoader(temp_file_path)
             elif file_extension == ".md": loader = UnstructuredMarkdownLoader(temp_file_path)
             
-            if loader:
-                all_docs.extend(loader.load())
+            if loader: all_docs.extend(loader.load())
             os.remove(temp_file_path)
         
         process_documents(all_docs)
@@ -158,7 +157,7 @@ if st.session_state.get("youtube_url_to_process"):
         if documents:
             process_documents(documents)
 
-# --- REMOVED: Load Existing DB on Startup logic ---
+# --- No loading from disk in this version ---
 
 st.write("---")
 st.header("Ask Questions About Your Knowledge Base")
@@ -171,8 +170,7 @@ if st.session_state.qa_chain:
             st.write("### Answer")
             st.write(response["result"])
             st.write("### Sources")
-            # The typo was a stray quote at the end of the next line
-            for source in response["source_documents"]:
+            for source in response["source_documents']:
                 st.info(f"Source: {source.metadata.get('source', 'N/A')}")
 else:
     st.warning("Please upload documents or add a URL to begin a session.")
