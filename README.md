@@ -49,3 +49,16 @@ Built as a personal AI second-brain system to organize and query scattered infor
 - Better retrieval pipelines
 - Conversation history
 - Notion/Google Drive integration
+
+---
+
+## Screenshots
+
+### Home Interface
+![Home UI](home-ui.png)
+
+### Document Upload
+![Upload](document-upload.png)
+
+### AI Responses
+![AI Response](ai-response.png)
